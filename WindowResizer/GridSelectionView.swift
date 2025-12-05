@@ -9,10 +9,16 @@ struct GridSelectionView: View {
     @State private var localRows: Int
     @State private var localColumns: Int
     let onResize: (Set<GridCell>) -> Void
+    let onQuickSnap: (SnapPosition) -> Void
 
-    init(gridConfig: Binding<GridConfiguration>, onResize: @escaping (Set<GridCell>) -> Void) {
+    init(
+        gridConfig: Binding<GridConfiguration>,
+        onResize: @escaping (Set<GridCell>) -> Void,
+        onQuickSnap: @escaping (SnapPosition) -> Void
+    ) {
         self._gridConfig = gridConfig
         self.onResize = onResize
+        self.onQuickSnap = onQuickSnap
         _localRows = State(initialValue: gridConfig.wrappedValue.rows)
         _localColumns = State(initialValue: gridConfig.wrappedValue.columns)
     }
@@ -158,9 +164,46 @@ struct GridSelectionView: View {
             .buttonStyle(.borderedProminent)
             .disabled(selectedCells.isEmpty)
             .padding(.horizontal)
-            .padding(.bottom)
+
+            // Quick snap buttons
+            VStack(spacing: 8) {
+                Text("Quick Snap")
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                
+                // All buttons in one row
+                HStack(spacing: 8) {
+                    QuickSnapButton(
+                        icon: "arrow.left.square.fill",
+                        label: "Left",
+                        action: { onQuickSnap(.leftHalf) }
+                    )
+                    QuickSnapButton(
+                        icon: "arrow.right.square.fill",
+                        label: "Right",
+                        action: { onQuickSnap(.rightHalf) }
+                    )
+                    QuickSnapButton(
+                        icon: "arrow.up.square.fill",
+                        label: "Top",
+                        action: { onQuickSnap(.topHalf) }
+                    )
+                    QuickSnapButton(
+                        icon: "arrow.down.square.fill",
+                        label: "Bottom",
+                        action: { onQuickSnap(.bottomHalf) }
+                    )
+                    QuickSnapButton(
+                        icon: "arrow.up.left.and.arrow.down.right.square.fill",
+                        label: "Full",
+                        action: { onQuickSnap(.fullScreen) }
+                    )
+                }
+            }
+            .padding(.horizontal)
+            .padding(.bottom, 12)
         }
-        .frame(width: 400, height: 450)
+        .frame(width: 400, height: 520)
     }
 
     func getCellsBetween(_ start: GridCell, _ end: GridCell) -> Set<GridCell> {
@@ -177,5 +220,37 @@ struct GridSelectionView: View {
         }
 
         return cells
+    }
+}
+
+enum SnapPosition {
+    case leftHalf
+    case rightHalf
+    case topHalf
+    case bottomHalf
+    case fullScreen
+}
+
+struct QuickSnapButton: View {
+    let icon: String
+    let label: String
+    let action: () -> Void
+    
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 4) {
+                Image(systemName: icon)
+                    .font(.system(size: 18))
+                Text(label)
+                    .font(.caption2)
+            }
+            .frame(maxWidth: .infinity)
+            .frame(height: 45)
+            .padding(.vertical, 4)
+            .background(Color.gray.opacity(0.1))
+            .cornerRadius(8)
+        }
+        .buttonStyle(.plain)
+        .help(label)
     }
 }

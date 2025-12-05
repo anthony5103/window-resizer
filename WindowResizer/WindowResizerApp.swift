@@ -35,7 +35,7 @@ struct WindowResizerApp: App {
 class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     var statusItem: NSStatusItem?
     var popover: NSPopover?
-    var gridConfig = GridConfiguration(rows: 2, columns: 2)
+    var gridConfig = GridConfiguration(rows: 4, columns: 4)
     private var hostingController: NSHostingController<GridSelectionView>?
     func applicationWillFinishLaunching(_ notification: Notification) {
         // Check for other instances EARLY, before UI is created
@@ -98,7 +98,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         // Create popover first
         popover = NSPopover()
-        popover?.contentSize = NSSize(width: 400, height: 450)
+        popover?.contentSize = NSSize(width: 400, height: 520)
         popover?.behavior = .transient
 
         // Create popover with hosting controller
@@ -238,11 +238,14 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
     func updatePopoverContent() {
         let view = GridSelectionView(
             gridConfig: Binding(
-                get: { [weak self] in self?.gridConfig ?? GridConfiguration(rows: 2, columns: 2) },
+                get: { [weak self] in self?.gridConfig ?? GridConfiguration(rows: 4, columns: 4) },
                 set: { [weak self] newValue in self?.gridConfig = newValue }
             ),
             onResize: { [weak self] selectedCells in
                 self?.resizeWindow(selectedCells: selectedCells)
+            },
+            onQuickSnap: { [weak self] position in
+                self?.quickSnap(to: position)
             }
         )
         hostingController = NSHostingController(rootView: view)
@@ -343,6 +346,100 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
         // Resize window using Accessibility API
         let success = applyWindowResize(window, to: newFrame)
         print("Resize result: \(success)")
+
+        // Close popover after resize
+        popover?.performClose(nil)
+    }
+
+    func quickSnap(to position: SnapPosition) {
+        // Prevent double execution
+        guard !isResizing else {
+            print("Resize already in progress, ignoring duplicate call")
+            return
+        }
+        isResizing = true
+        defer {
+            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                self.isResizing = false
+            }
+        }
+
+        guard let frontmostApp = NSWorkspace.shared.frontmostApplication else {
+            showAlert(message: "No active application found. Please select a window first.")
+            return
+        }
+
+        // Check permissions
+        let hasPermission = AXIsProcessTrusted()
+        if !hasPermission {
+            if !hasShownPermissionAlert {
+                hasShownPermissionAlert = true
+                let options =
+                    [kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true]
+                    as CFDictionary
+                AXIsProcessTrustedWithOptions(options)
+
+                showAlert(
+                    message:
+                        "Accessibility permissions are required. Please grant permissions in System Settings > Privacy & Security > Accessibility, then restart the app."
+                )
+            }
+            return
+        }
+
+        // Try to get the window
+        guard let window = getFrontmostWindow() else {
+            showAlert(
+                message:
+                    "No resizable window found. The frontmost application may not have any windows."
+            )
+            return
+        }
+
+        guard let screen = NSScreen.main else { return }
+        let screenFrame = screen.visibleFrame
+
+        // Calculate frame based on snap position
+        // Note: macOS uses bottom-left origin, so Y increases upward
+        let newFrame: CGRect
+        switch position {
+        case .leftHalf:
+            newFrame = CGRect(
+                x: screenFrame.origin.x,
+                y: screenFrame.origin.y,
+                width: screenFrame.width / 2,
+                height: screenFrame.height
+            )
+        case .rightHalf:
+            newFrame = CGRect(
+                x: screenFrame.origin.x + screenFrame.width / 2,
+                y: screenFrame.origin.y,
+                width: screenFrame.width / 2,
+                height: screenFrame.height
+            )
+        case .topHalf:
+            // Top half: Y starts at middle, height is half
+            newFrame = CGRect(
+                x: screenFrame.origin.x,
+                y: screenFrame.origin.y + screenFrame.height / 2,
+                width: screenFrame.width,
+                height: screenFrame.height / 2
+            )
+        case .bottomHalf:
+            // Bottom half: Y starts at origin, height is half
+            newFrame = CGRect(
+                x: screenFrame.origin.x,
+                y: screenFrame.origin.y,
+                width: screenFrame.width,
+                height: screenFrame.height / 2
+            )
+        case .fullScreen:
+            newFrame = screenFrame
+        }
+
+        // Resize window using Accessibility API
+        let success = applyWindowResize(window, to: newFrame)
+        print("Quick snap result: \(success)")
 
         // Close popover after resize
         popover?.performClose(nil)
