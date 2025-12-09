@@ -98,7 +98,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         // Create popover first
         popover = NSPopover()
-        popover?.contentSize = NSSize(width: 400, height: 520)
+        popover?.contentSize = NSSize(width: 400, height: 540)
         popover?.behavior = .transient
 
         // Create popover with hosting controller
@@ -106,6 +106,62 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSPopoverDelegate {
 
         // Make popover delegate to handle focus
         popover?.delegate = self
+        
+        // Register keyboard shortcuts
+        setupKeyboardShortcuts()
+    }
+    
+    private var eventMonitor: Any?
+    
+    func setupKeyboardShortcuts() {
+        // Monitor global key events (requires Accessibility permissions which we already have)
+        eventMonitor = NSEvent.addGlobalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+            self?.handleKeyEvent(event)
+        }
+        
+        // Also monitor local events when app is active
+        NSEvent.addLocalMonitorForEvents(matching: [.keyDown]) { [weak self] event in
+            if self?.handleKeyEvent(event) == true {
+                return nil // Event was handled
+            }
+            return event
+        }
+    }
+    
+    @discardableResult
+    func handleKeyEvent(_ event: NSEvent) -> Bool {
+        // Check for Cmd+Option modifiers
+        let modifiers = event.modifierFlags
+        guard modifiers.contains(.command) && modifiers.contains(.option) else {
+            return false
+        }
+        
+        // Handle different key codes
+        switch event.keyCode {
+        case 123: // Left Arrow
+            quickSnap(to: .leftHalf)
+            return true
+        case 124: // Right Arrow
+            quickSnap(to: .rightHalf)
+            return true
+        case 126: // Up Arrow
+            quickSnap(to: .topHalf)
+            return true
+        case 125: // Down Arrow
+            quickSnap(to: .bottomHalf)
+            return true
+        case 3: // F key
+            quickSnap(to: .fullScreen)
+            return true
+        default:
+            return false
+        }
+    }
+    
+    deinit {
+        if let monitor = eventMonitor {
+            NSEvent.removeMonitor(monitor)
+        }
     }
 
     private var isToggling = false

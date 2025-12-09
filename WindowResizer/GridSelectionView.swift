@@ -56,7 +56,7 @@ struct GridSelectionView: View {
                 }
             }
             .padding(.horizontal)
-            .padding(.top)
+            //.padding(.top)
             // Sync external changes (from menu) back to local state
             .onChange(of: gridConfig.rows) { newValue in
                 if localRows != newValue {
@@ -149,9 +149,7 @@ struct GridSelectionView: View {
                 }
             }
             .frame(height: 300)
-            .padding()
-
-            Divider()
+            .padding(.horizontal)
 
             // Action button
             Button(action: {
@@ -165,45 +163,52 @@ struct GridSelectionView: View {
             .disabled(selectedCells.isEmpty)
             .padding(.horizontal)
 
+            Divider()
+
             // Quick snap buttons
             VStack(spacing: 8) {
-                Text("Quick Snap")
-                    .font(.caption)
-                    .foregroundColor(.secondary)
-                
                 // All buttons in one row
                 HStack(spacing: 8) {
                     QuickSnapButton(
                         icon: "arrow.left.square.fill",
                         label: "Left",
+                        shortcut: "⌘⌥←",
                         action: { onQuickSnap(.leftHalf) }
                     )
                     QuickSnapButton(
                         icon: "arrow.right.square.fill",
                         label: "Right",
+                        shortcut: "⌘⌥→",
                         action: { onQuickSnap(.rightHalf) }
                     )
                     QuickSnapButton(
                         icon: "arrow.up.square.fill",
                         label: "Top",
+                        shortcut: "⌘⌥↑",
                         action: { onQuickSnap(.topHalf) }
                     )
                     QuickSnapButton(
                         icon: "arrow.down.square.fill",
                         label: "Bottom",
+                        shortcut: "⌘⌥↓",
                         action: { onQuickSnap(.bottomHalf) }
                     )
                     QuickSnapButton(
                         icon: "arrow.up.left.and.arrow.down.right.square.fill",
                         label: "Full",
+                        shortcut: "⌘⌥F",
                         action: { onQuickSnap(.fullScreen) }
                     )
                 }
+
+                //Text("Quick Snap")
+                //    .font(.caption)
+                //    .foregroundColor(.secondary)
             }
             .padding(.horizontal)
-            .padding(.bottom, 12)
+            //.padding(.bottom, 12)
         }
-        .frame(width: 400, height: 520)
+        .frame(width: 400, height: 500)
     }
 
     func getCellsBetween(_ start: GridCell, _ end: GridCell) -> Set<GridCell> {
@@ -234,8 +239,16 @@ enum SnapPosition {
 struct QuickSnapButton: View {
     let icon: String
     let label: String
+    let shortcut: String?
     let action: () -> Void
-    
+
+    init(icon: String, label: String, shortcut: String? = nil, action: @escaping () -> Void) {
+        self.icon = icon
+        self.label = label
+        self.shortcut = shortcut
+        self.action = action
+    }
+
     var body: some View {
         Button(action: action) {
             VStack(spacing: 4) {
@@ -243,14 +256,19 @@ struct QuickSnapButton: View {
                     .font(.system(size: 18))
                 Text(label)
                     .font(.caption2)
+                if let shortcut = shortcut {
+                    Text(shortcut)
+                        .font(.system(size: 9))
+                        .foregroundColor(.secondary)
+                }
             }
             .frame(maxWidth: .infinity)
-            .frame(height: 45)
+            .frame(height: 55)
             .padding(.vertical, 4)
             .background(Color.gray.opacity(0.1))
             .cornerRadius(8)
         }
         .buttonStyle(.plain)
-        .help(label)
+        .help(shortcut != nil ? "\(label) - \(shortcut!)" : label)
     }
 }
